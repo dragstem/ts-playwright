@@ -4,13 +4,13 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "dev": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js"
   },
   "dependencies": {
     "@fastify/multipart": "^9.0.3",
-    "@ts-playwright/runner": "0.1.0",
-    "@ts-playwright/shared": "0.1.0",
+    "@ts-playwright/runner": "workspace:*",
+    "@ts-playwright/shared": "workspace:*",
     "adm-zip": "^0.5.16",
     "fastify": "^5.2.1"
   }

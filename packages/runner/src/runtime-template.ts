@@ -1,14 +1,19 @@
 export function buildRuntimeModule(): string {
-  return `import { test as base, expect } from "@playwright/test";
+  return `import { createRequire } from "node:module";
 import fs from "node:fs/promises";
 import path from "node:path";
 import dgram from "node:dgram";
 import { createHmac } from "node:crypto";
 
+const requireFromPlaywright = createRequire(process.argv[1]);
+const { test: base, expect } = requireFromPlaywright("@playwright/test");
+
 const artifactsDir = process.env.ARTIFACTS_DIR ?? path.join(process.cwd(), "artifacts");
 const metadataPath = path.join(process.cwd(), "metadata.json");
 let cachedMetadata = null;
 let cachedDrift = null;
+let cachedTotpSecretsPath = null;
+let cachedTotpSecrets = null;
 
 async function readMetadata() {
   if (cachedMetadata) {
@@ -138,6 +143,74 @@ async function queryNtpDrift(timeoutMs = 3000) {
   });
 }
 
+function parseTotpSecretsDocument(text) {
+  const source = String(text ?? "").trim();
+  if (!source) {
+    return {};
+  }
+  if (source.startsWith("{")) {
+    const parsed = JSON.parse(source);
+    const result = {};
+    for (const [login, value] of Object.entries(parsed ?? {})) {
+      const normalizedLogin = String(login ?? "").trim();
+      if (!normalizedLogin) {
+        continue;
+      }
+      const secret = typeof value === "string" ? value.trim() : typeof value?.secret === "string" ? value.secret.trim() : "";
+      if (!secret) {
+        continue;
+      }
+      result[normalizedLogin] = secret;
+    }
+    return result;
+  }
+  const result = {};
+  for (const rawLine of source.split(/\\r?\\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#") || line.startsWith(";")) {
+      continue;
+    }
+    const separatorIndex = line.includes("=") ? line.indexOf("=") : line.indexOf(":");
+    if (separatorIndex < 0) {
+      throw new Error("Invalid TOTP secrets line: " + line);
+    }
+    const login = line.slice(0, separatorIndex).trim();
+    const secret = line.slice(separatorIndex + 1).trim();
+    if (!login || !secret) {
+      throw new Error("Invalid TOTP secrets line: " + line);
+    }
+    result[login] = secret;
+  }
+  return result;
+}
+
+async function readTotpSecretsFile() {
+  const filePath = String(process.env.TOTP_SECRETS_FILE ?? "").trim();
+  if (!filePath) {
+    return {};
+  }
+  if (cachedTotpSecrets && cachedTotpSecretsPath === filePath) {
+    return cachedTotpSecrets;
+  }
+  const text = await fs.readFile(filePath, "utf8");
+  cachedTotpSecrets = parseTotpSecretsDocument(text);
+  cachedTotpSecretsPath = filePath;
+  return cachedTotpSecrets;
+}
+
+async function resolveTotpSecretFromFile(login) {
+  const normalizedLogin = String(login ?? "").trim();
+  if (!normalizedLogin) {
+    return "";
+  }
+  try {
+    const secrets = await readTotpSecretsFile();
+    return String(secrets[normalizedLogin] ?? "").trim();
+  } catch {
+    return "";
+  }
+}
+
 function decodeBase32(value) {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   let bits = "";
@@ -195,7 +268,11 @@ export function input(name) {
   if (secret) {
     return liveTotp(secret);
   }
-  return process.env[\`INPUT_\${name}\`] ?? "";
+  const raw = process.env[\`INPUT_\${name}\`] ?? "";
+  if (String(name ?? "").trim() === "2fa_otp" && raw) {
+    return resolveTotpSecretFromFile(raw).then((fileSecret) => (fileSecret ? liveTotp(fileSecret) : raw));
+  }
+  return raw;
 }
 
 base.afterEach(async ({ page }, testInfo) => {
@@ -216,7 +293,6 @@ export { expect };
 export function buildPlaywrightConfigModule(): string {
   return `import path from "node:path";
 import { existsSync } from "node:fs";
-import { defineConfig } from "@playwright/test";
 
 const artifactsDir = process.env.ARTIFACTS_DIR ?? path.join(process.cwd(), "artifacts");
 const authStatePath = path.join(process.cwd(), "auth_state.json");
@@ -227,7 +303,7 @@ const viewport = viewportMatch
   ? { width: Number(viewportMatch[1]), height: Number(viewportMatch[2]) }
   : { width: 1280, height: 720 };
 
-export default defineConfig({
+export default {
   testDir: process.cwd(),
   testMatch: ["scenario.spec.ts"],
   fullyParallel: false,
@@ -249,6 +325,6 @@ export default defineConfig({
     video: "on",
     screenshot: "only-on-failure"
   }
-});
+};
 `;
 }

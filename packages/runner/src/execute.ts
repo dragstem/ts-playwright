@@ -1,7 +1,7 @@
 import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, copyFileSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { DEFAULT_DOCKER_IMAGE, queryNtpDrift, type RunStatus } from "@ts-playwright/shared";
+import { DEFAULT_DOCKER_IMAGE, DEFAULT_PLAYWRIGHT_VERSION, queryNtpDrift, type RunStatus } from "@ts-playwright/shared";
 import { prepareWorkspaceFromPackage, prepareWorkspaceFromSource, type PreparedWorkspace } from "./workspace";
 
 export interface RunExecutionResult {
@@ -10,6 +10,25 @@ export interface RunExecutionResult {
   stdout_path: string;
   stderr_path: string;
   summary_json: string;
+}
+
+function playwrightCliPath(): string {
+  return require.resolve("@playwright/test/cli");
+}
+
+function playwrightCommandArgs(args: string[]): { command: string; args: string[] } {
+  return {
+    command: process.execPath,
+    args: [playwrightCliPath(), ...args]
+  };
+}
+
+function withNodeLikeEnv(env: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
+  const nextEnv = { ...(env ?? process.env) };
+  if (process.versions.electron) {
+    nextEnv.ELECTRON_RUN_AS_NODE = "1";
+  }
+  return nextEnv;
 }
 
 export async function runScenarioInDocker(options: {
@@ -25,6 +44,7 @@ export async function runScenarioInDocker(options: {
   otp_secrets?: Record<string, string>;
   docker_image?: string;
   otp_autoreplace?: boolean;
+  timeout_ms?: number;
 }): Promise<RunExecutionResult> {
   const prepared = prepareWorkspaceFromPackage({
     scenario_zip: options.scenario_zip,
@@ -67,12 +87,14 @@ export async function runScenarioInDocker(options: {
         ...buildInputEnvArgs(options.inputs, options.otp_secrets),
         options.docker_image ?? DEFAULT_DOCKER_IMAGE,
         "npx",
-        "playwright",
+        "-y",
+        `@playwright/test@${DEFAULT_PLAYWRIGHT_VERSION}`,
         "test",
         "scenario.spec.ts",
         "--config=playwright.config.ts"
       ],
-      options.artifacts_dir
+      options.artifacts_dir,
+      { timeout_ms: options.timeout_ms }
     );
     return finalizeExecution(options.artifacts_dir, exitCode);
   } catch (error) {
@@ -94,14 +116,15 @@ export async function replayScenarioLocally(options: {
   try {
     const drift = await queryNtpDrift();
     writeFileSync(path.join(options.artifacts_dir, "drift.log"), `local_vs_ntp=${drift ?? "unavailable"}\n`, "utf8");
+    const playwright = playwrightCommandArgs(["test", "scenario.spec.ts", "--config=playwright.config.ts"]);
     const exitCode = await spawnProcess(
-      "npx",
-      ["playwright", "test", "scenario.spec.ts", "--config=playwright.config.ts"],
+      playwright.command,
+      playwright.args,
       options.artifacts_dir,
       {
         cwd: prepared.workspace_dir,
         env: {
-          ...process.env,
+          ...withNodeLikeEnv(process.env),
           ARTIFACTS_DIR: options.artifacts_dir,
           BASE_URL: options.base_url,
           PW_BROWSER: options.metadata.browser,
@@ -128,6 +151,7 @@ async function spawnProcess(
   options: {
     cwd?: string;
     env?: NodeJS.ProcessEnv;
+    timeout_ms?: number;
   } = {}
 ): Promise<number> {
   mkdirSync(artifactsDir, { recursive: true });
@@ -139,19 +163,37 @@ async function spawnProcess(
   return await new Promise<number>((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
-      env: options.env,
+      env: withNodeLikeEnv(options.env),
       shell: false
     });
+    let didTimeout = false;
+    const timeout =
+      options.timeout_ms && options.timeout_ms > 0
+        ? setTimeout(() => {
+            didTimeout = true;
+            child.kill();
+          }, options.timeout_ms)
+        : null;
     child.stdout.on("data", (chunk) => stdout.write(chunk));
     child.stderr.on("data", (chunk) => stderr.write(chunk));
     child.once("error", (error) => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
       stdout.end();
       stderr.end();
       reject(error);
     });
     child.once("close", (code) => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
       stdout.end();
       stderr.end();
+      if (didTimeout) {
+        reject(new Error(`Process timed out after ${options.timeout_ms}ms`));
+        return;
+      }
       resolve(code ?? 1);
     });
   });

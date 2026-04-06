@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@playwright/test": "1.52.0",
-    "@ts-playwright/shared": "0.1.0",
+    "@ts-playwright/shared": "workspace:*",
     "adm-zip": "^0.5.16"
   }
 }

@@ -9,7 +9,8 @@ const state = {
   selectedOutput: -1,
   selectedInput: -1,
   selectedOtp: -1,
-  dirty: false
+  dirty: false,
+  lastErrorSeen: ""
 };
 
 const elements = {
@@ -136,6 +137,10 @@ async function refreshRuntime() {
   elements.runtimeStatus.textContent = state.runtime.status;
   elements.currentFile.textContent = state.runtime.test_path || "-";
   elements.preparedZip.textContent = state.runtime.zip_path || "-";
+  if (state.runtime.last_error && state.runtime.last_error !== state.lastErrorSeen) {
+    state.lastErrorSeen = state.runtime.last_error;
+    alert(state.runtime.last_error);
+  }
   updateButtons();
 }
 

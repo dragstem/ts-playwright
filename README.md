@@ -23,7 +23,7 @@ Use this directory as an independent project root. The legacy Python code in the
 ## Requirements
 
 - Node.js 22+
-- npm 11+
+- pnpm 10+ via Corepack
 - Docker Desktop or compatible Docker runtime for server-side runs
 - Playwright browsers installed locally for agent recording and local replay
 
@@ -31,21 +31,23 @@ Use this directory as an independent project root. The legacy Python code in the
 
 ```powershell
 cd ts-playwright
-npm install
-npx playwright install chromium
-npm run build
+corepack pnpm install
+corepack pnpm run playwright:install
+corepack pnpm run build
 ```
+
+If `corepack enable pnpm` fails on Windows with `EPERM` under `C:\Program Files\nodejs`, use `corepack pnpm ...` directly instead of enabling the global shim.
 
 Start the server:
 
 ```powershell
-node apps/server/dist/index.js
+corepack pnpm run start:server
 ```
 
 Start the agent in another terminal:
 
 ```powershell
-npm run start -w @ts-playwright/agent
+corepack pnpm run start:agent
 ```
 
 Server default URL: `http://localhost:8000`
@@ -53,11 +55,11 @@ Server default URL: `http://localhost:8000`
 ## Development Commands
 
 ```powershell
-npm run dev:server
-npm run dev:agent
-npm run typecheck
-npm test
-npm run build
+corepack pnpm run dev:server
+corepack pnpm run dev:agent
+corepack pnpm run typecheck
+corepack pnpm test
+corepack pnpm run build
 ```
 
 Notes:
@@ -65,6 +67,35 @@ Notes:
 - `dev:server` runs the TypeScript server through `tsx watch`
 - `dev:agent` starts the Electron app from built files
 - `build` also copies static agent assets into `apps/agent/dist/assets`
+
+## Codex Integration
+
+This repository now includes project-local Codex integration for Playwright work:
+
+- `AGENTS.md` adds repo guidance for Codex sessions
+- `.agents/plugins/marketplace.json` registers the local Codex plugin
+- `plugins/ts-playwright-codex/` contains the project plugin, wrapper skills, and Playwright MCP launcher
+- `codex/playwright-mcp.config.json` contains the repo-local Playwright MCP config
+
+Project-local Playwright skills:
+
+- `ts-playwright-e2e`
+- `ts-playwright-browser-debug`
+- `ts-playwright-site-discovery`
+
+These local entry points intentionally reuse the installed global Codex skills from `~/.codex/skills/`:
+
+- `playwright-regression-orchestrator`
+- `chrome-devtools`
+
+`ts-playwright-site-discovery` is the discovery-oriented entry point: it uses the local Playwright MCP server to start from a URL, traverse nested functionality, and generate a structured Markdown artifact that can be reused for later test or action generation.
+
+The project-local Playwright MCP wrapper expects:
+
+- Node.js to be available on `PATH`
+- the Playwright MCP package to exist at `~/.codex/playwright-mcp-package`
+
+Additional project notes live in [codex/README.md](codex/README.md).
 
 ## Configuration
 
@@ -77,6 +108,8 @@ Environment variables:
 - `APP_STORAGE_DIR` - storage directory, default `<project>/storage`
 - `APP_API_KEY` - optional API protection via `X-API-KEY`
 - `APP_OTP_AUTOREPLACE` - optional OTP autofill rewrite toggle, accepts `1/true/yes`
+- `APP_DOCKER_IMAGE` - optional Docker image override for scenario execution
+- `APP_RUN_TIMEOUT_MS` - optional run timeout in milliseconds, default `900000`
 
 ### Agent
 
@@ -97,7 +130,7 @@ Example:
 }
 ```
 
-The template file is already included at [config.example.json](C:/Users/orochispam/Downloads/tron/playwright%20project/playwright-project2/ts-playwright/apps/agent/assets/config.example.json).
+The template file is already included at [apps/agent/assets/config.example.json](apps/agent/assets/config.example.json).
 
 ## Storage Layout
 
@@ -136,9 +169,81 @@ Supported business logic in the TypeScript version:
 - input placeholders like `{{INPUT:user_name}}`
 - OTP placeholders like `{{INPUT:2fa_otp}}`
 - OTP account lookup by login
+- file-based TOTP secret lookup for local Playwright flows
+- on-demand TOTP code generation through the local server API
 - runtime output capture into `outputs.json`
 - optional auth state packaging and replay
 - replacement of recorded base URL with runtime `BASE_URL`
+
+## On-Demand 2FA For Playwright
+
+For browser discovery or ad-hoc Playwright flows, do not hardcode a 6-digit OTP into the script. Store the TOTP secret once and generate a fresh code only when the UI actually asks for 2FA.
+
+### Option 1: local text file with TOTP secrets
+
+Put secrets into a git-ignored file such as `storage/totp-secrets.txt`:
+
+```text
+# login=BASE32_SECRET
+qa-admin=BASE32SECRET
+qa-manager=ANOTHERBASE32SECRET
+```
+
+The helper in `@ts-playwright/shared` can read that file and return a fresh code:
+
+```ts
+import { getOtpCodeFromFile } from "@ts-playwright/shared";
+
+const otp = await getOtpCodeFromFile("qa-admin", "storage/totp-secrets.txt");
+await page.getByLabel(/code|otp|verification/i).fill(otp.code);
+```
+
+For repo scenarios that already use `{{INPUT:2fa_otp}}`, the local runtime can also read the same file automatically:
+
+```powershell
+$env:TOTP_SECRETS_FILE = (Resolve-Path "storage/totp-secrets.txt")
+```
+
+Then pass the login name instead of the 6-digit code:
+
+- scenario input name: `2fa_otp`
+- scenario input value: `qa-admin`
+
+When the runtime sees `input("2fa_otp")`, it will look up `qa-admin` in `TOTP_SECRETS_FILE` and generate a fresh TOTP code on demand.
+
+### Option 2: local server API
+
+If you prefer keeping secrets in the local server state, use the OTP account API.
+
+1. Save an OTP account in the local server:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/otp-accounts -ContentType 'application/json' -Body '{"login":"qa-admin","secret":"BASE32SECRET"}'
+```
+
+2. When the Playwright flow reaches a 2FA challenge, request a fresh code:
+
+```powershell
+$otp = Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/otp-accounts/code -ContentType 'application/json' -Body '{"login":"qa-admin"}'
+$otp.code
+```
+
+3. Fill the field and continue:
+
+```ts
+const response = await request.post("http://localhost:8000/api/otp-accounts/code", {
+  data: { login: "qa-admin" }
+});
+const otp = await response.json();
+await page.getByLabel(/code|otp|verification/i).fill(otp.code);
+```
+
+Recommended pattern:
+
+- keep the secrets file or server-side OTP account outside git;
+- use the fresh code only at the moment the 2FA form is visible;
+- save `auth_state.json` after successful login;
+- reuse `storageState` for the rest of the crawl so most later actions do not need OTP again.
 
 ## API Surface
 
@@ -153,6 +258,7 @@ Main routes preserved in the TypeScript server:
 - `GET /api/projects/{project_id}/environments`
 - `GET /api/otp-accounts`
 - `POST /api/otp-accounts`
+- `POST /api/otp-accounts/code`
 - `DELETE /api/otp-accounts/{login}`
 - `GET /api/projects/{project_id}/scenarios`
 - `POST /api/projects/{project_id}/folders`
@@ -175,9 +281,9 @@ Main routes preserved in the TypeScript server:
 
 Current local checks:
 
-- `npm run typecheck`
-- `npm test`
-- `npm run build`
+- `corepack pnpm run typecheck`
+- `corepack pnpm test`
+- `corepack pnpm run build`
 
 These are already passing in the current workspace.
 

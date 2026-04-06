@@ -557,9 +557,10 @@ export function renderRunPage(input: {
           <button class="btn btn-sm btn-danger" id="delete-run-btn">Delete run</button>
         </div>
         <div class="card">
-          <div>Status: <span class="badge badge-${escapeAttr(input.run.status)}">${escapeHtml(input.run.status)}</span></div>
-          <div>Started: ${escapeHtml(input.run.started_at ?? "")}</div>
-          <div>Finished: ${escapeHtml(input.run.finished_at ?? "")}</div>
+          <div>Status: <span id="run-status" class="badge badge-${escapeAttr(input.run.status)}">${escapeHtml(input.run.status)}</span></div>
+          <div>Started: <span id="run-started">${escapeHtml(input.run.started_at ?? "")}</span></div>
+          <div>Finished: <span id="run-finished">${escapeHtml(input.run.finished_at ?? "")}</span></div>
+          <div id="run-live-note" class="muted">${input.run.status === "running" || input.run.status === "queued" ? "Run in progress. This page refreshes automatically." : ""}</div>
         </div>
         <div class="card">
           <div class="muted">Outputs:</div>
@@ -590,6 +591,9 @@ export function renderRunPage(input: {
       </div>
     `,
     `
+      const runId = ${serializeJson(input.run.id)};
+      const terminalStatuses = new Set(["passed", "failed", "error"]);
+
       document.getElementById("delete-run-btn").addEventListener("click", async () => {
         if (!confirm("Delete this run?")) return;
         const resp = await fetch("/api/runs/${escapeJs(input.run.id)}", { method: "DELETE" });
@@ -614,7 +618,37 @@ export function renderRunPage(input: {
             item.appendChild(link);
             list.appendChild(item);
           });
-        });
+        })
+        .catch(() => {});
+
+      async function refreshRun() {
+        try {
+          const response = await fetch("/api/runs/" + encodeURIComponent(runId));
+          if (!response.ok) {
+            return;
+          }
+          const run = await response.json();
+          const statusEl = document.getElementById("run-status");
+          const startedEl = document.getElementById("run-started");
+          const finishedEl = document.getElementById("run-finished");
+          const noteEl = document.getElementById("run-live-note");
+
+          statusEl.textContent = run.status;
+          statusEl.className = "badge badge-" + run.status;
+          startedEl.textContent = run.started_at || "";
+          finishedEl.textContent = run.finished_at || "";
+          noteEl.textContent = terminalStatuses.has(run.status) ? "" : "Run in progress. This page refreshes automatically.";
+
+          if (terminalStatuses.has(run.status)) {
+            location.reload();
+          }
+        } catch {
+        }
+      }
+
+      if (!terminalStatuses.has(${serializeJson(input.run.status)})) {
+        setInterval(refreshRun, 2000);
+      }
     `
   );
 }

@@ -19,6 +19,7 @@ import {
   FolderCreateBodySchema,
   FolderMoveBodySchema,
   OtpAccountUpsertBodySchema,
+  OtpCodeCreateBodySchema,
   RunCreateBodySchema,
   ScenarioMetadataSchema,
   ScenarioMoveBodySchema,
@@ -35,6 +36,7 @@ import {
   normalizeFolderPath,
   normalizeInputSpecs,
   normalizeOtpLogin,
+  generateTotpCodeSafeDetails,
   projectRootDir,
   runArtifactsDir,
   safeJoin,
@@ -50,6 +52,7 @@ import { JsonStateStore } from "./store";
 
 const config = loadConfig();
 const store = new JsonStateStore(config.state_file);
+recoverInterruptedRuns();
 
 export function createServer() {
   const app = Fastify({ logger: true });
@@ -67,7 +70,10 @@ export function createServer() {
     }
   });
 
-  app.get("/", async () => renderProjectsPage(store.readState().projects));
+  app.get("/", async (_request, reply) => {
+    reply.type("text/html; charset=utf-8");
+    return renderProjectsPage(store.readState().projects);
+  });
 
   app.get("/projects/:project_id", async (request, reply) => {
     const { project_id } = request.params as { project_id: string };
@@ -225,6 +231,30 @@ export function createServer() {
     });
     const { secret: _secret, ...result } = account;
     return result;
+  });
+
+  app.post("/api/otp-accounts/code", async (request, reply) => {
+    const body = OtpCodeCreateBodySchema.safeParse(request.body);
+    if (!body.success) {
+      return sendError(reply, 400, "OTP login is required");
+    }
+    const login = normalizeOtpLogin(body.data.login);
+    if (!login) {
+      return sendError(reply, 400, "OTP login is required");
+    }
+    const account = store.readState().otp_accounts.find((item) => item.login === login);
+    if (!account) {
+      return sendError(reply, 404, "OTP account not found");
+    }
+    const otp = generateTotpCodeSafeDetails(account.secret);
+    return {
+      login,
+      code: otp.code,
+      generated_at: new Date().toISOString(),
+      expires_in_sec: otp.expires_in_sec,
+      period: otp.period,
+      digits: otp.digits
+    };
   });
 
   app.delete("/api/otp-accounts/:login", async (request, reply) => {
@@ -661,6 +691,50 @@ function findRun(state: AppState, runId: string): RunRecord | undefined {
   return state.runs.find((run) => run.id === runId);
 }
 
+function recoverInterruptedRuns(): void {
+  store.update((state) => {
+    for (const run of state.runs) {
+      if (run.status !== "queued" && run.status !== "running") {
+        continue;
+      }
+      const scenario = findScenario(state, run.scenario_id);
+      const fallbackArtifactsPath = scenario
+        ? runArtifactsDir(scenarioDirFromPackage(scenario.package_path), run.id)
+        : null;
+      const artifactsPath = run.artifacts_path ?? fallbackArtifactsPath;
+      const stdoutPath = run.stdout_path ?? (artifactsPath ? path.join(artifactsPath, "stdout.log") : null);
+      const stderrPath = run.stderr_path ?? (artifactsPath ? path.join(artifactsPath, "stderr.log") : null);
+
+      run.artifacts_path = artifactsPath;
+      run.stdout_path = stdoutPath;
+      run.stderr_path = stderrPath;
+
+      const resultPath = artifactsPath ? path.join(artifactsPath, "result.json") : null;
+      if (resultPath && existsSync(resultPath)) {
+        try {
+          const result = JSON.parse(readFileSync(resultPath, "utf8")) as {
+            status?: RunRecord["status"];
+            finished_at?: string;
+          };
+          run.status = result.status ?? "error";
+          run.finished_at = result.finished_at ?? run.finished_at ?? new Date().toISOString();
+          run.summary_json = JSON.stringify(result);
+          continue;
+        } catch {
+          // Fall back to an interrupted run marker below.
+        }
+      }
+
+      run.status = "error";
+      run.finished_at = run.finished_at ?? new Date().toISOString();
+      run.summary_json = JSON.stringify({
+        status: "error",
+        error: "Run was interrupted before completion. Please retry."
+      });
+    }
+  });
+}
+
 async function executeRunJob(
   runId: string,
   scenario: ScenarioRecord,
@@ -668,17 +742,23 @@ async function executeRunJob(
   inputs: Record<string, string>,
   otpSecrets: Record<string, string>
 ): Promise<void> {
+  const scenarioDir = scenarioDirFromPackage(scenario.package_path);
+  const artifactsDir = runArtifactsDir(scenarioDir, runId);
+  const stdoutPath = path.join(artifactsDir, "stdout.log");
+  const stderrPath = path.join(artifactsDir, "stderr.log");
+
   store.update((state) => {
     const run = state.runs.find((item) => item.id === runId);
     if (run) {
       run.status = "running";
       run.started_at = new Date().toISOString();
+      run.artifacts_path = artifactsDir;
+      run.stdout_path = stdoutPath;
+      run.stderr_path = stderrPath;
     }
   });
 
   try {
-    const scenarioDir = scenarioDirFromPackage(scenario.package_path);
-    const artifactsDir = runArtifactsDir(scenarioDir, runId);
     const metadata = readMetadataFromPackage(scenario.package_path);
     const result = await runScenarioInDocker({
       scenario_zip: scenario.package_path,
@@ -691,7 +771,9 @@ async function executeRunJob(
       viewport: `${metadata.viewport.width}x${metadata.viewport.height}`,
       inputs,
       otp_secrets: otpSecrets,
-      otp_autoreplace: config.otp_autoreplace
+      otp_autoreplace: config.otp_autoreplace,
+      docker_image: config.docker_image ?? undefined,
+      timeout_ms: config.run_timeout_ms
     });
     store.update((state) => {
       const run = state.runs.find((item) => item.id === runId);
@@ -714,6 +796,9 @@ async function executeRunJob(
       run.status = "error";
       run.finished_at = new Date().toISOString();
       run.summary_json = JSON.stringify({ status: "error", error: String(error) });
+      run.artifacts_path ??= artifactsDir;
+      run.stdout_path ??= stdoutPath;
+      run.stderr_path ??= stderrPath;
     });
   }
 }

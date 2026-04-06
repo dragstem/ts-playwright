@@ -14,6 +14,7 @@ export const DEFAULT_BROWSER = "chromium";
 export const DEFAULT_LOCALE = "ru-RU";
 export const DEFAULT_TIMEZONE = "Europe/Riga";
 export const DEFAULT_VIEWPORT = { width: 1280, height: 720 } as const;
+export const DEFAULT_PLAYWRIGHT_VERSION = "1.52.0";
 export const DEFAULT_DOCKER_IMAGE = "mcr.microsoft.com/playwright:v1.52.0-jammy";
 
 export const DEFAULT_OTP_ACCOUNTS = [

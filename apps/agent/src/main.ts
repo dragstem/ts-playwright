@@ -27,6 +27,7 @@ interface RuntimeState {
   test_path: string;
   zip_path: string;
   auth_state_path: string;
+  last_error: string;
 }
 
 const tempDir = path.join(os.tmpdir(), "ts-playwright-agent");
@@ -38,7 +39,8 @@ let runtimeState: RuntimeState = {
   status: "Idle",
   test_path: "",
   zip_path: "",
-  auth_state_path: ""
+  auth_state_path: "",
+  last_error: ""
 };
 
 function createWindow() {
@@ -78,8 +80,20 @@ function loadConfig(): AgentConfig {
   };
 }
 
-function npxCommand(): string {
-  return process.platform === "win32" ? "npx.cmd" : "npx";
+function playwrightCliPath(): string {
+  return require.resolve("@playwright/test/cli");
+}
+
+function spawnPlaywright(args: string[]) {
+  const env = { ...process.env };
+  if (process.versions.electron) {
+    env.ELECTRON_RUN_AS_NODE = "1";
+  }
+  return spawn(process.execPath, [playwrightCliPath(), ...args], {
+    stdio: ["ignore", "pipe", "pipe"],
+    shell: false,
+    env
+  });
 }
 
 function newScenarioPath(prefix: string, extension: string): string {
@@ -114,15 +128,33 @@ ipcMain.handle("agent:start-recording", async (_event, payload: { start_url: str
   }
   const testPath = newScenarioPath("scenario", "spec.ts");
   const authStatePath = payload.save_auth_state ? newScenarioPath("auth_state", "json") : "";
-  const args = ["playwright", "codegen", payload.start_url, "--target", "playwright-test", "--output", testPath];
+  const args = ["codegen", payload.start_url, "--target", "playwright-test", "--output", testPath];
   if (authStatePath) {
     args.push("--save-storage", authStatePath);
   }
-  recordingProcess = spawn(npxCommand(), args, {
-    stdio: "ignore",
-    shell: false
+  recordingProcess = spawnPlaywright(args);
+  let stderr = "";
+  let stdout = "";
+  recordingProcess.stdout?.on("data", (chunk) => {
+    stdout += chunk.toString();
+  });
+  recordingProcess.stderr?.on("data", (chunk) => {
+    stderr += chunk.toString();
+  });
+  recordingProcess.once("error", (error) => {
+    runtimeState.last_error = error instanceof Error ? error.message : String(error);
+    runtimeState.status = "Idle";
+    recordingProcess = null;
   });
   recordingProcess.once("close", () => {
+    const hasRecordedFile = existsSync(testPath);
+    const details = [stderr.trim(), stdout.trim()].filter(Boolean).join("\n");
+    runtimeState.last_error =
+      hasRecordedFile || !details
+        ? hasRecordedFile
+          ? ""
+          : "Recording exited before a scenario file was created."
+        : details;
     recordingProcess = null;
     runtimeState.status = "Idle";
   });
@@ -130,7 +162,8 @@ ipcMain.handle("agent:start-recording", async (_event, payload: { start_url: str
     status: "Recording",
     test_path: testPath,
     zip_path: "",
-    auth_state_path: authStatePath
+    auth_state_path: authStatePath,
+    last_error: ""
   };
   return runtimeState;
 });
@@ -141,6 +174,7 @@ ipcMain.handle("agent:stop-recording", async () => {
   }
   recordingProcess = null;
   runtimeState.status = "Idle";
+  runtimeState.last_error = "";
   return runtimeState;
 });
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Site Discovery"
+  short_description: "Deep Playwright site discovery for test planning"
+  default_prompt: "Use $ts-playwright-site-discovery to crawl a starting URL, map the reachable functionality, and draft a test-discovery document."

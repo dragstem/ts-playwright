@@ -140,6 +140,10 @@ export const OtpAccountUpsertBodySchema = z.object({
   secret: z.string().min(1)
 });
 
+export const OtpCodeCreateBodySchema = z.object({
+  login: z.string().min(1)
+});
+
 export type InputSpec = z.infer<typeof InputSpecSchema>;
 export type OutputSpec = z.infer<typeof OutputSpecSchema>;
 export type ScenarioMetadata = z.infer<typeof ScenarioMetadataSchema>;

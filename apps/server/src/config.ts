@@ -9,6 +9,8 @@ export interface ServerConfig {
   host: string;
   port: number;
   otp_autoreplace: boolean;
+  docker_image: string | null;
+  run_timeout_ms: number;
 }
 
 export function loadConfig(): ServerConfig {
@@ -24,6 +26,8 @@ export function loadConfig(): ServerConfig {
     api_key: process.env.APP_API_KEY ?? null,
     host: process.env.APP_HOST ?? "0.0.0.0",
     port: Number(process.env.APP_PORT ?? 8000),
-    otp_autoreplace: ["1", "true", "yes"].includes(String(process.env.APP_OTP_AUTOREPLACE ?? "").toLowerCase())
+    otp_autoreplace: ["1", "true", "yes"].includes(String(process.env.APP_OTP_AUTOREPLACE ?? "").toLowerCase()),
+    docker_image: String(process.env.APP_DOCKER_IMAGE ?? "").trim() || null,
+    run_timeout_ms: Number(process.env.APP_RUN_TIMEOUT_MS ?? 15 * 60 * 1000)
   };
 }

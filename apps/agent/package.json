@@ -8,8 +8,9 @@
     "start": "electron ./dist/main.js"
   },
   "dependencies": {
-    "@ts-playwright/runner": "0.1.0",
-    "@ts-playwright/shared": "0.1.0",
+    "@playwright/test": "1.52.0",
+    "@ts-playwright/runner": "workspace:*",
+    "@ts-playwright/shared": "workspace:*",
     "adm-zip": "^0.5.16",
     "electron": "^35.1.4"
   }
