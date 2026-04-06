@@ -1,0 +1,16 @@
+{
+  "name": "@ts-playwright/agent",
+  "version": "0.1.0",
+  "main": "dist/main.js",
+  "types": "dist/main.d.ts",
+  "scripts": {
+    "dev": "tsc -b && node ../../scripts/copy-agent-assets.mjs && electron ./dist/main.js",
+    "start": "electron ./dist/main.js"
+  },
+  "dependencies": {
+    "@ts-playwright/runner": "0.1.0",
+    "@ts-playwright/shared": "0.1.0",
+    "adm-zip": "^0.5.16",
+    "electron": "^35.1.4"
+  }
+}

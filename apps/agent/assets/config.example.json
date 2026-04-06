@@ -1,0 +1,5 @@
+{
+  "server_url": "http://localhost:8000",
+  "api_key": null,
+  "default_user": "demo"
+}
