@@ -1,0 +1,12 @@
+.git
+.gitlab
+.agents
+node_modules
+storage
+tests
+codex
+plugins
+apps/agent
+apps/*/dist
+packages/*/dist
+*.tsbuildinfo

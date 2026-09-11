@@ -1,0 +1,11 @@
+# Phase 1 / P1-T16 — weekly prune, Sundays 04:00 (USER timer for tsapp).
+#   sudo -iu tsapp systemctl --user enable --now ts-playwright-prune.timer
+[Unit]
+Description=Weekly ts-playwright docker prune
+
+[Timer]
+OnCalendar=Sun *-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

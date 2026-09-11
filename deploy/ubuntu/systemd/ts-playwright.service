@@ -1,0 +1,22 @@
+# Phase 1 / P1-T14 — autostart the stack via docker compose under the rootless user.
+# Install as a USER unit for tsapp:
+#   mkdir -p ~tsapp/.config/systemd/user
+#   cp ts-playwright.service ~tsapp/.config/systemd/user/
+#   sudo -iu tsapp systemctl --user daemon-reload
+#   sudo -iu tsapp systemctl --user enable --now ts-playwright.service
+# Lingering (enabled in 03-rootless-docker.sh) makes it start on boot without a login.
+[Unit]
+Description=ts-playwright (docker compose)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/ts-playwright
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+ExecStop=/usr/bin/docker compose down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=default.target

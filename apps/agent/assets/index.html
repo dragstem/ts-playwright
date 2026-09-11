@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src *;" />
+    <title>Playwright Agent</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <div>
+          <h1>Playwright Agent</h1>
+          <p>TypeScript recorder for Playwright Test scenarios.</p>
+        </div>
+        <div class="status">
+          <span>Status</span>
+          <strong id="runtime-status">Idle</strong>
+        </div>
+      </header>
+
+      <section class="panel auth-panel">
+        <div class="field-grid">
+          <label class="full">
+            <span>Server</span>
+            <div class="row">
+              <input id="auth-server-url" type="url" placeholder="http://server:8000" autocomplete="url" />
+              <button id="auth-server-save-btn" type="button" class="secondary">Save server</button>
+            </div>
+            <code id="auth-server">—</code>
+          </label>
+          <label class="full">
+            <span>Signed in</span>
+            <strong id="auth-status">Checking…</strong>
+          </label>
+          <label class="full">
+            <span>Access token (PAT)</span>
+            <input id="auth-token" type="password" placeholder="paste a personal access token" autocomplete="off" />
+          </label>
+          <div class="row">
+            <button id="auth-save-btn" type="button">Sign in</button>
+            <button id="auth-clear-btn" type="button">Sign out</button>
+          </div>
+        </div>
+      </section>
+
+      <main class="grid">
+        <section class="panel form-panel">
+          <div class="field-grid">
+            <label>
+              <span>Project</span>
+              <select id="project-select"></select>
+            </label>
+            <label>
+              <span>Env</span>
+              <select id="env-select"></select>
+            </label>
+            <label class="full">
+              <span>Scenario Name</span>
+              <input id="scenario-name" type="text" value="New Scenario" />
+            </label>
+            <label class="full">
+              <span>Folder</span>
+              <input id="folder-path" type="text" placeholder="optional/path" />
+            </label>
+            <label class="full">
+              <span>Start URL</span>
+              <input id="start-url" type="text" placeholder="https://example.com" />
+            </label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-header">
+            <h2>Outputs</h2>
+          </div>
+          <div class="mini-grid">
+            <label class="stack-field">
+              <span>Variable Name</span>
+              <input id="output-key" type="text" placeholder="variable_name" />
+            </label>
+            <label class="stack-field">
+              <span>Selector</span>
+              <input id="output-selector" type="text" placeholder="selector/xpath" />
+            </label>
+            <label class="stack-field">
+              <span>Option</span>
+              <select id="output-mode">
+                <option value="text">text</option>
+                <option value="value">value</option>
+                <option value="attr">attr</option>
+              </select>
+            </label>
+            <label class="stack-field">
+              <span>Attr</span>
+              <input id="output-attr" type="text" placeholder="attr/optional" />
+            </label>
+            <label class="stack-field">
+              <span>Frame</span>
+              <input id="output-frame" type="text" placeholder="frame (optional)" />
+            </label>
+            <label class="stack-field">
+              <span>Timeout</span>
+              <input id="output-timeout" type="number" placeholder="timeout ms" />
+            </label>
+            <button id="add-output-btn">Add output</button>
+            <button id="remove-output-btn" class="secondary">Remove selected</button>
+          </div>
+          <table id="output-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Key</th>
+                <th>Selector</th>
+                <th>Mode</th>
+                <th>Attr</th>
+                <th>Frame</th>
+                <th>Timeout</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <section class="panel">
+          <div class="section-header">
+            <h2>Input Variables</h2>
+          </div>
+          <div class="mini-grid">
+            <select id="input-type">
+              <option value="string">string</option>
+              <option value="2fa_otp">2fa_otp</option>
+            </select>
+            <input id="input-name" type="text" placeholder="name" />
+            <input id="input-description" type="text" placeholder="description" />
+            <input id="input-account" type="text" placeholder="OTP source (optional)" />
+            <button id="add-input-btn">Add input</button>
+            <button id="remove-input-btn" class="secondary">Remove selected</button>
+            <button id="insert-input-btn">Insert placeholder</button>
+            <button id="insert-otp-btn">Insert 2FA OTP</button>
+          </div>
+          <table id="input-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Type</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>OTP source</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <section class="panel">
+          <div class="section-header">
+            <h2>Server Tokens</h2>
+          </div>
+          <div class="mini-grid">
+            <button type="button" class="secondary" data-server-token-btn="server_username">Insert {server_username}</button>
+            <button type="button" class="secondary" data-server-token-btn="server_password">Insert {server_password}</button>
+            <button type="button" class="secondary" data-server-token-btn="server_2faotp">Insert {server_2faotp}</button>
+            <button type="button" class="secondary" data-server-token-btn="server_merchant">Insert {server_merchant}</button>
+          </div>
+          <div class="muted">Use these placeholders in the editor. The server resolves them from the selected account and merchant at run time.</div>
+        </section>
+
+        <section class="panel">
+          <div class="section-header">
+            <h2>Server Accounts</h2>
+            <button id="account-refresh-btn" class="secondary">Refresh</button>
+          </div>
+          <div class="muted">Read-only. Manage stand credentials in the web app — the agent only selects a login (e.g. for a live 2FA code).</div>
+          <table id="account-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Login</th>
+                <th>2FA</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <section class="panel">
+          <div class="section-header">
+            <h2>Server Merchants</h2>
+            <button id="merchant-refresh-btn" class="secondary">Refresh</button>
+          </div>
+          <div class="muted">Read-only. Manage merchants in the web app.</div>
+          <table id="merchant-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Name</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <section class="panel editor-panel">
+          <div class="section-header">
+            <h2>Scenario Editor</h2>
+            <div class="editor-status">
+              <span class="muted">Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, Ctrl/Cmd+C, Ctrl/Cmd+V</span>
+              <span id="editor-dirty" class="muted">saved</span>
+            </div>
+          </div>
+          <div class="editor-toolbar-block">
+            <div class="toolbar">
+              <button id="refresh-btn">Refresh</button>
+              <button id="record-btn">Record</button>
+              <button id="stop-btn">Stop</button>
+              <button id="preview-btn">Preview</button>
+              <button id="apply-btn">Apply</button>
+              <button id="replay-btn">Replay</button>
+              <button id="upload-btn">Upload</button>
+            </div>
+            <div class="editor-toolbar-meta">
+              <label class="checkbox-row">
+                <input id="save-auth" type="checkbox" />
+                <span>Save auth state</span>
+              </label>
+              <div class="paths inline-paths">
+                <div><span>Current File</span><code id="current-file">-</code></div>
+                <div><span>Prepared Zip</span><code id="prepared-zip">-</code></div>
+              </div>
+            </div>
+          </div>
+          <textarea id="editor" spellcheck="false"></textarea>
+          <div id="editor-context-menu" class="context-menu hidden" aria-hidden="true"></div>
+        </section>
+      </main>
+    </div>
+    <div
+      id="toast-container"
+      style="position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; max-width: 440px"
+    ></div>
+    <script src="./renderer.js"></script>
+  </body>
+  </html>

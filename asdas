@@ -1,0 +1,46 @@
+import { test, expect } from '@playwright/test';
+
+test.use({
+  locale: 'ru-RU',
+  timezoneId: 'Europe/Riga',
+  viewport: {
+    height: 720,
+    width: 1280
+  }
+});
+
+test('test', async ({ page }) => {
+  await page.goto('https://stage.b2bcrypto.io/');
+  await page.getByRole('textbox', { name: 'Username' }).click();
+  await page.getByRole('textbox', { name: 'Username' }).fill('{server_username}');
+  await page.getByRole('textbox', { name: 'Password' }).click();
+  await page.getByRole('textbox', { name: 'Password' }).fill('{server_password}');
+  await page.getByRole('textbox', { name: '2FA Code' }).click();
+  await page.getByRole('textbox', { name: '2FA Code' }).fill('{server_2faotp}');
+  await page.getByRole('button', { name: 'Log In' }).click();
+  await page.getByRole('button', { name: 'Tools' }).click();
+  await page.getByRole('link', { name: 'Wallets' }).click();
+  await page.getByRole('button', { name: 'New Wallet' }).click();
+  await page.getByRole('radio', { name: 'Deposit W' }).check();
+  await page.getByRole('textbox', { name: 'Nickname (Optional)' }).click();
+  await page.getByRole('textbox', { name: 'Nickname (Optional)' }).fill('{{INPUT:additional_name}}');
+  await page.locator('#mui-component-select-users').click();
+  await page.getByRole('option', { name: '{{INPUT:merchant_name}}' }).click();
+  await page.mouse.click(20, 20);
+  await page.getByLabel('', { exact: true }).click();
+  await page.getByRole('option', { name: 'Ethereum', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'HD wallet' }).check();
+  await page.getByRole('textbox', { name: 'Extended key' }).click();
+  await page.getByRole('textbox', { name: 'Extended key' }).fill('{{INPUT:extended_private_key}}');
+  await page.getByRole('textbox', { name: 'Derivation path' }).click();
+  await page.getByRole('textbox', { name: 'Derivation path' }).fill('{{INPUT:derivation_path}}');
+  await page.getByRole('textbox', { name: 'Accumulator address' }).click();
+  await page.getByRole('textbox', { name: 'Accumulator address' }).fill('{{INPUT:accumulator_address}}');
+  await page.getByRole('textbox', { name: 'Sponsor address' }).click();
+  await page.getByRole('textbox', { name: 'Sponsor address' }).fill('{{INPUT:sponsor_address}}');
+  await page.getByRole('textbox', { name: 'Sponsor private key' }).click();
+  await page.getByRole('textbox', { name: 'Sponsor private key' }).fill('{{INPUT:sponsor_private_address}}');
+  await page.locator('input[name="twoFactorAuthToken"]').click();
+  await page.locator('input[name="twoFactorAuthToken"]').fill('{server_2faotp}');
+  await page.getByRole('button', { name: 'Submit' }).click();
+});

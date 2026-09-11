@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ts-playwright-browser": {
+      "command": "./scripts/run-playwright-mcp.cmd",
+      "note": "Project-local Playwright MCP wrapper that loads codex/playwright-mcp.config.json from the repo root."
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@ts-playwright/server",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@fastify/multipart": "^9.0.3",
+    "@fastify/static": "^8.0.3",
+    "@ts-playwright/runner": "workspace:*",
+    "@ts-playwright/shared": "workspace:*",
+    "adm-zip": "^0.5.16",
+    "fastify": "^5.2.1"
+  }
+}

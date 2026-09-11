@@ -1,0 +1,11 @@
+# Phase 1 / P1-T15 — daily storage backup at 03:30 (USER timer for tsapp).
+#   sudo -iu tsapp systemctl --user enable --now ts-playwright-backup.timer
+[Unit]
+Description=Daily ts-playwright storage backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

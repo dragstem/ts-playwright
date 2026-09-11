@@ -1,0 +1,42 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "isolated": true,
+    "launchOptions": {
+      "headless": false
+    },
+    "contextOptions": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "ignoreHTTPSErrors": true
+    }
+  },
+  "capabilities": [
+    "core",
+    "vision"
+  ],
+  "saveSession": true,
+  "sharedBrowserContext": false,
+  "outputDir": "./storage/playwright-mcp-output",
+  "outputMode": "file",
+  "console": {
+    "level": "warning"
+  },
+  "timeouts": {
+    "action": 10000,
+    "navigation": 60000,
+    "expect": 8000
+  },
+  "imageResponses": "allow",
+  "snapshot": {
+    "mode": "incremental"
+  },
+  "allowedOrigins": [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000"
+  ],
+  "testIdAttribute": "data-testid",
+  "codegen": "none"
+}

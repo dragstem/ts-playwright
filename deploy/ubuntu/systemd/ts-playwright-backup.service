@@ -1,0 +1,8 @@
+# Phase 1 / P1-T15 — storage backup (USER unit for tsapp, triggered by the timer).
+[Unit]
+Description=ts-playwright storage backup
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/ts-playwright
+ExecStart=/opt/ts-playwright/backup.sh

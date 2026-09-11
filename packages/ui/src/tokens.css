@@ -1,0 +1,152 @@
+/* ts-playwright design tokens (Phase 3 / X-T01). Status-semantic, dark-first with a light
+   override. All UI colors/spacing flow from these custom properties. */
+:root {
+  color-scheme: light dark;
+
+  --bg: #0f1115;
+  --surface: #161a22;
+  --surface-2: #1d2230;
+  --border: #2a3140;
+  --text: #e6e9ef;
+  --text-muted: #9aa3b2;
+  --accent: #3b82f6;
+  --accent-fg: #ffffff;
+
+  --status-queued: #9aa3b2;
+  --status-running: #3b82f6;
+  --status-passed: #22c55e;
+  --status-failed: #ef4444;
+  --status-error: #f59e0b;
+  --status-timeout: #f59e0b;
+  --status-stopped: #9aa3b2;
+  --status-interrupted: #f59e0b;
+  --status-2fa: #a855f7;
+
+  --radius: 8px;
+  --radius-sm: 6px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+
+  --font: -apple-system, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #f0f2f5;
+    --border: #d7dbe2;
+    --text: #1a1d23;
+    --text-muted: #5b6472;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+code,
+pre {
+  font-family: var(--mono);
+}
+
+/* --- Button --- */
+.tsp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.tsp-btn:hover {
+  border-color: var(--accent);
+}
+.tsp-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.tsp-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+.tsp-btn--danger {
+  background: var(--status-failed);
+  border-color: var(--status-failed);
+  color: #fff;
+}
+
+/* --- StatusBadge --- */
+.tsp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  text-transform: lowercase;
+}
+.tsp-badge::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.tsp-badge[data-status="queued"] { color: var(--status-queued); }
+.tsp-badge[data-status="running"] { color: var(--status-running); }
+.tsp-badge[data-status="passed"] { color: var(--status-passed); }
+.tsp-badge[data-status="failed"] { color: var(--status-failed); }
+.tsp-badge[data-status="error"] { color: var(--status-error); }
+.tsp-badge[data-status="timeout"] { color: var(--status-timeout); }
+.tsp-badge[data-status="stopped"] { color: var(--status-stopped); }
+.tsp-badge[data-status="interrupted"] { color: var(--status-interrupted); }
+.tsp-badge[data-status="running"]::before { animation: tsp-pulse 1.2s ease-in-out infinite; }
+
+@keyframes tsp-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* --- Card --- */
+.tsp-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}

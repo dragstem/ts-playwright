@@ -1,0 +1,8 @@
+# Phase 1 / P1-T16 — periodic prune (USER unit for tsapp, triggered by the timer).
+[Unit]
+Description=ts-playwright docker prune
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/ts-playwright
+ExecStart=/opt/ts-playwright/prune.sh

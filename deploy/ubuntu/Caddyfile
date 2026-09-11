@@ -1,0 +1,24 @@
+# ts-playwright reverse proxy + automatic HTTPS (Phase 1 / P1-T12).
+# {$TS_PLAYWRIGHT_DOMAIN} is substituted from the environment at container start.
+#
+# Public domain with a DNS A-record -> Caddy auto-obtains a Let's Encrypt certificate.
+# To register an ACME contact email, add a global block at the very top:
+#   {
+#       email you@example.com
+#   }
+# IP-only / closed network -> add `tls internal` inside the site block (self-signed cert),
+# and trust Caddy's root CA on client machines (see RUNBOOK.md).
+
+{$TS_PLAYWRIGHT_DOMAIN} {
+	encode gzip
+
+	# --- Temporary perimeter until real authentication lands (Phase 2) ---
+	# Set TS_PLAYWRIGHT_BASIC_AUTH_USER / TS_PLAYWRIGHT_BASIC_AUTH_HASH in .env
+	# (hash via: docker run --rm caddy caddy hash-password --plaintext 'pass'),
+	# then uncomment this block to require a login at the edge:
+	# basic_auth {
+	#     {$TS_PLAYWRIGHT_BASIC_AUTH_USER} {$TS_PLAYWRIGHT_BASIC_AUTH_HASH}
+	# }
+
+	reverse_proxy ts-playwright-server:8000
+}

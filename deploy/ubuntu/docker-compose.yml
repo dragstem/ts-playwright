@@ -1,0 +1,84 @@
+# ts-playwright — production compose for a dedicated Ubuntu host (Phase 1 / P1-T11).
+# Rootless-aware: the server talks to the tsapp rootless Docker socket; port 8000 is NOT
+# published — only Caddy is reachable (443) on the host. See deploy/ubuntu/RUNBOOK.md.
+services:
+  ts-playwright-server:
+    ports:
+      - "192.168.87.254:8000:8000"
+    image: ${TS_PLAYWRIGHT_IMAGE:?TS_PLAYWRIGHT_IMAGE is required}
+    container_name: ts-playwright-server
+    restart: unless-stopped
+    # Under rootless Docker the container's root maps to the unprivileged tsapp uid on the
+    # host, which is what grants safe access to the rootless socket. The non-root-on-HOST
+    # guarantee comes from rootless userns remapping, not from the in-image USER.
+    user: "0:0"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      APP_STORAGE_DIR: /data
+      APP_API_KEY: ${APP_API_KEY:?APP_API_KEY is required in production}
+      APP_OTP_AUTOREPLACE: ${APP_OTP_AUTOREPLACE:-false}
+      APP_RUN_TIMEOUT_MS: ${APP_RUN_TIMEOUT_MS:-900000}
+      APP_PLAYWRIGHT_DEFAULT_TIMEOUT_MS: ${APP_PLAYWRIGHT_DEFAULT_TIMEOUT_MS:-60000}
+      APP_DOCKER_IMAGE: ${APP_DOCKER_IMAGE:-mcr.microsoft.com/playwright:v1.52.0-jammy}
+      APP_DOCKER_RUNNER_MODE: ${APP_DOCKER_RUNNER_MODE:-global}
+      APP_DOCKER_WORKSPACE_TRANSPORT: ${APP_DOCKER_WORKSPACE_TRANSPORT:-auto}
+      APP_DOCKER_SHM_SIZE: ${APP_DOCKER_SHM_SIZE:-1g}
+      APP_DOCKER_IPC: ${APP_DOCKER_IPC:-}
+      APP_DOCKER_NETWORK: ${APP_DOCKER_NETWORK:-}
+      APP_DOCKER_ADD_HOSTS: ${APP_DOCKER_ADD_HOSTS:-}
+      APP_DOCKER_CPUS: ${APP_DOCKER_CPUS:-2}
+      APP_DOCKER_MEMORY: ${APP_DOCKER_MEMORY:-2g}
+      APP_DOCKER_PIDS_LIMIT: ${APP_DOCKER_PIDS_LIMIT:-512}
+      APP_DOCKER_CAP_DROP: ${APP_DOCKER_CAP_DROP:-ALL}
+      APP_DOCKER_NO_NEW_PRIVILEGES: ${APP_DOCKER_NO_NEW_PRIVILEGES:-false}
+      APP_MAX_CONCURRENT_RUNS: ${APP_MAX_CONCURRENT_RUNS:-2}
+    volumes:
+      - ts-playwright-storage:/data
+      # Rootless dockerd socket mounted at the conventional path so the server's default works.
+      - ${ROOTLESS_DOCKER_SOCK:?ROOTLESS_DOCKER_SOCK is required}:/var/run/docker.sock
+    networks:
+      - edge
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  caddy:
+    image: caddy:2
+    container_name: ts-playwright-caddy
+    restart: unless-stopped
+    depends_on:
+      - ts-playwright-server
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      TS_PLAYWRIGHT_DOMAIN: ${TS_PLAYWRIGHT_DOMAIN:?TS_PLAYWRIGHT_DOMAIN is required}
+      TS_PLAYWRIGHT_ACME_EMAIL: ${TS_PLAYWRIGHT_ACME_EMAIL:-}
+      TS_PLAYWRIGHT_BASIC_AUTH_USER: ${TS_PLAYWRIGHT_BASIC_AUTH_USER:-}
+      TS_PLAYWRIGHT_BASIC_AUTH_HASH: ${TS_PLAYWRIGHT_BASIC_AUTH_HASH:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - edge
+
+networks:
+  edge:
+    driver: bridge
+
+volumes:
+  ts-playwright-storage:
+    # Fixed name so backup.sh / restore target it regardless of the compose project name.
+    name: ts-playwright-storage
+  caddy-data:
+  caddy-config:

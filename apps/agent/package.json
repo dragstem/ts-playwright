@@ -1,0 +1,17 @@
+{
+  "name": "@ts-playwright/agent",
+  "version": "0.1.0",
+  "main": "dist/main.js",
+  "types": "dist/main.d.ts",
+  "scripts": {
+    "dev": "tsc -b && node ../../scripts/copy-agent-assets.mjs && node ../../scripts/start-agent.mjs",
+    "start": "tsc -b && node ../../scripts/copy-agent-assets.mjs && node ../../scripts/start-agent.mjs"
+  },
+  "dependencies": {
+    "@playwright/test": "1.52.0",
+    "@ts-playwright/runner": "workspace:*",
+    "@ts-playwright/shared": "workspace:*",
+    "adm-zip": "^0.5.16",
+    "electron": "^35.1.4"
+  }
+}

@@ -1,0 +1,28 @@
+node_modules/
+.playwright-mcp/
+
+# Scratch/temporary exports at repo root (Phase 0 / P0-T08)
+/temp*.html
+/temp*.csv
+/temp*.md
+
+# Runtime storage: keep the schema marker + placeholder seed examples, ignore mutable state.
+# accounts.json / merchants.json hold real stand secrets, so they are untracked (2-R9 / open
+# question #19). Copy the .example files and fill them in locally.
+storage/**
+!storage/.schema_version
+!storage/accounts.json.example
+!storage/merchants.json.example
+!storage/projects/
+!storage/projects/**/
+!storage/projects/**/package.zip
+
+# Test-run artifacts written when a scenario has a relative package_path (run logs/artifacts).
+/suite/
+
+apps/*/dist/
+packages/*/dist/
+*.tsbuildinfo
+.env
+.env.*
+deploy.env

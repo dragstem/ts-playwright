@@ -1,0 +1,10 @@
+/* app-shell layout; design tokens come from @ts-playwright/ui (imported via components). */
+#root {
+  min-height: 100%;
+}
+
+.tsp-app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--space-6, 24px);
+}

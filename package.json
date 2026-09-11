@@ -1,0 +1,37 @@
+{
+  "name": "ts-playwright",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "build": "tsc -b && node ./scripts/copy-agent-assets.mjs",
+    "build:server": "tsc -b packages/shared packages/runner apps/server",
+    "build:web": "corepack pnpm --filter @ts-playwright/web build",
+    "dev:web": "corepack pnpm --filter @ts-playwright/web dev",
+    "clean": "node ./scripts/clean.mjs",
+    "dev:server": "corepack pnpm --filter @ts-playwright/server dev",
+    "dev:agent": "corepack pnpm --filter @ts-playwright/agent dev",
+    "start:server": "corepack pnpm --filter @ts-playwright/server start",
+    "start:agent": "corepack pnpm --filter @ts-playwright/agent start",
+    "playwright:install": "corepack pnpm --filter @ts-playwright/agent exec playwright install chromium",
+    "typecheck": "tsc -b",
+    "typecheck:server": "tsc -b packages/shared packages/runner apps/server",
+    "db:migrate-sqlite": "tsx apps/server/src/db/migrate-cli.ts",
+    "kek:generate": "tsx apps/server/src/kek-cli.ts",
+    "secrets:reseal": "tsx apps/server/src/reseal-cli.ts",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
+  }
+}

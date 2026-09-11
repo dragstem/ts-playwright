@@ -1,0 +1,9 @@
+FROM mcr.microsoft.com/playwright:v1.52.0-jammy
+
+ENV NODE_ENV=production \
+  NODE_PATH=/usr/lib/node_modules
+
+RUN npm install -g @playwright/test@1.52.0 \
+  && playwright --version
+
+WORKDIR /work

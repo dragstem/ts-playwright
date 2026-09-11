@@ -1,0 +1,38 @@
+{
+  "name": "ts-playwright-codex",
+  "version": "0.1.0",
+  "description": "Project-local Codex plugin for ts-playwright with Playwright MCP and repo-specific Playwright skills, including site discovery.",
+  "author": {
+    "name": "Local Project"
+  },
+  "repository": "https://github.com/dragstem/ts-playwright.git",
+  "license": "MIT",
+  "keywords": [
+    "playwright",
+    "codex",
+    "mcp",
+    "e2e",
+    "typescript"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "ts-playwright Codex",
+    "shortDescription": "Project-local Playwright MCP and Codex Playwright workflow entry points",
+    "longDescription": "Use the ts-playwright Codex plugin to run a repo-local Playwright MCP session, route Codex to the installed Playwright skills in ~/.codex/skills, and work on browser automation, site discovery, or regression tasks directly inside this repository.",
+    "developerName": "Local Project",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Use the project Playwright MCP server to inspect the local ts-playwright UI",
+      "Use ts-playwright-e2e to design or update Playwright coverage in this repo",
+      "Use ts-playwright-browser-debug to debug a local browser flow in this repo",
+      "Use ts-playwright-site-discovery to map a site from a starting URL and produce a test-discovery document"
+    ],
+    "brandColor": "#2563EB"
+  }
+}
